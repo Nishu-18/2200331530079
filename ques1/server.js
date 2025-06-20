@@ -1,13 +1,92 @@
-const express = require('express');
+import dotenv from "dotenv"
+dotenv.config()
+import express from "express";
 const app = express();
-const cors = require('cors');
+import cors from 'cors'
+import axios from "axios";  
+
+const token=process.env.TOKEN
+console.log(token);
+
+const VALID_IDS = {
+    'p': 'primes',
+    'f': 'fibo',
+    'e': 'even',
+    'r': 'rand'
+};
+
+const WINDOW_SIZE = 10;
+const TIMEOUT = 500;
+const numberWindow = [];    
+
+
+
 
 app.use(cors())
 
-app.get("/numbers/:alpha", (req, res) => {
-    console.log(req.params.alpha);
-    res.json(req.params.alpha);
-})
+app.get("/numbers/:id",async(req,res)=>{
+    const id = req.params.id;
+   const endpoint = VALID_IDS[id];
+   console.log(endpoint);
+
+   
+    
+
+    if (!endpoint) {
+        return res.status(400).json({ error: 'Invalid number ID' });
+    }
+
+    const url = `http://20.244.56.144/evaluation-service/${endpoint}`;
+    console.log(url);
+    
+    const windowPrevState = [...numberWindow];
+    try {
+    const response = await axios.get(url, {
+        timeout: TIMEOUT,
+        headers: {
+            Authorization: `Bearer ${token}`
+        }
+    });
+
+    const incomingNumbers = response.data.numbers || [];
+    console.log(incomingNumbers);
+
+    // Filter new, unique numbers
+    for (let num of incomingNumbers) {
+        if (!numberWindow.includes(num)) {
+            if (numberWindow.length >= WINDOW_SIZE) {
+                numberWindow.shift(); // remove oldest
+            }
+            numberWindow.push(num); // add newest
+        }
+    }
+
+    const avg = numberWindow.length
+        ? (numberWindow.reduce((a, b) => a + b, 0) / numberWindow.length).toFixed(2)
+        : 0;
+
+    res.json({
+        windowPrevState,
+        windowCurrState: numberWindow,
+        avg: parseFloat(avg)
+    });
+
+} catch (error) {
+    console.error("Error fetching numbers:", error.message);
+    return res.status(500).json({
+        windowPrevState,
+        windowCurrState: numberWindow,
+        avg: numberWindow.length
+            ? parseFloat((numberWindow.reduce((a, b) => a + b, 0) / numberWindow.length).toFixed(2))
+            : 0
+    });
+}
+
+
+}
+
+)
+
 
 
 
@@ -20,4 +99,4 @@ app.listen(9876, () => {
 
 
 
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJNYXBDbGFpbXMiOnsiYXVkIjoiaHR0cDovLzIwLjI0NC41Ni4xNDQvZXZhbHVhdGlvbi1zZXJ2aWNlIiwiZW1haWwiOiJuaXNoY2hhbGJoYXJkd2FqMjAwNEBnbWFpbC5jb20iLCJleHAiOjE3NTAzOTUzNDQsImlhdCI6MTc1MDM5NTA0NCwiaXNzIjoiQWZmb3JkIE1lZGljYWwgVGVjaG5vbG9naWVzIFByaXZhdGUgTGltaXRlZCIsImp0aSI6Ijc1MTg3NTFlLTA0ODQtNDM1Ny05Zjk3LTZkYjMxZjc4ODEzZSIsImxvY2FsZSI6ImVuLUlOIiwibmFtZSI6Im5pc2hjaGFsIGJoYXJkd2FqIiwic3ViIjoiYjkyYTgxNWQtM2VmOC00YmE4LWFlNmMtMWUxOGQ0YmFjOGU3In0sImVtYWlsIjoibmlzaGNoYWxiaGFyZHdhajIwMDRAZ21haWwuY29tIiwibmFtZSI6Im5pc2hjaGFsIGJoYXJkd2FqIiwicm9sbE5vIjoiMjIwMDMzMTUzMDA3OSIsImFjY2Vzc0NvZGUiOiJyZlF6RlEiLCJjbGllbnRJRCI6ImI5MmE4MTVkLTNlZjgtNGJhOC1hZTZjLTFlMThkNGJhYzhlNyIsImNsaWVudFNlY3JldCI6ImJWaFFXR2NGdnVhQUdkdUYifQ.SOmYCI_7amNuaDPGoiJUni1vPbhuTCT_icz4R0kQa3g"
+   
